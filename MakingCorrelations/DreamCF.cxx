@@ -40,8 +40,9 @@ DreamCF::~DreamCF()
 
 void DreamCF::GetCorrelations(const char *pairName)
 {
-
-  if (fPairOne && fPairOne->GetPair()) {
+  if (fPairOne && fPairOne->GetPair())
+  {
+    if(!fPairTwo) {
     TH1F *CFsingle = SingleCF(fPairOne->GetPair()->GetCF(), Form("hCkSingleNormWeight%s", pairName));
     if (CFsingle)
     {
@@ -52,29 +53,31 @@ void DreamCF::GetCorrelations(const char *pairName)
       {
         fCF.push_back(CFMeVSingle);
       }
-      } else {
-        Warning("DreamCF", "No Pair 2 Set, only setting Pair 1!");
-        //existence already checked
-        fCF.push_back(fPairOne->GetPair()->GetCF());
-        fGrCF.push_back(fPairOne->GetPair()->GetGrCF());
-      }
-  }
-  LoopCorrelations(fPairOne->GetShiftedEmpty(),
-                   Form("hCk_Shifted%s", pairName));
-  LoopCorrelations(fPairOne->GetFixShifted(),
-                   Form("hCk_FixShifted%s", pairName));
-  LoopCorrelations(fPairOne->GetRebinned(), Form("hCk_Rebinned%s", pairName));
-  LoopCorrelations(fPairOne->GetReweighted(),
-                   Form("hCk_Reweighted%s", pairName));
-
-/*
-  if (fPairOne && fPairOne->GetPair())
-  {
+    }
+    else
+    {
+      Warning("DreamCF", "No Pair 2 Set, only setting Pair 1!");
+      //existence already checked
+      fCF.push_back(fPairOne->GetPair()->GetCF());
+      fGrCF.push_back(fPairOne->GetPair()->GetGrCF());
+    }
+    }
     if (fPairTwo && fPairTwo->GetPair())
     {
-      TH1F *CFSum = AddCF(fPairOne->GetPair()->GetCF(),
-                          fPairTwo->GetPair()->GetCF(),
-                          Form("hCkTotNormWeight%s", pairName));
+      TH1F *CFSum;
+      if (fDirectSum)
+      {
+        CFSum = AddCF(fPairOne->GetPair(),
+                      fPairTwo->GetPair(),
+                      Form("hCkTotNormWeight%s", pairName));
+      }
+      else
+      {
+        CFSum = AddCF(fPairOne->GetPair()->GetCF(),
+                      fPairTwo->GetPair()->GetCF(),
+                      Form("hCkTotNormWeight%s", pairName));
+      }
+
       if (CFSum)
       {
         fCF.push_back(CFSum);
@@ -107,8 +110,28 @@ void DreamCF::GetCorrelations(const char *pairName)
       Warning("DreamCF", "No Pair 2 set either");
     }
   }
-
-  if (fPairOne && !fPairTwo)
+  if (fPairOne && fPairTwo)
+  {
+    if (fPairOne->GetNDists() == fPairTwo->GetNDists())
+    {
+      LoopCorrelations(fPairOne->GetShiftedEmpty(), fPairTwo->GetShiftedEmpty(),
+                       Form("hCk_Shifted%s", pairName));
+      LoopCorrelations(fPairOne->GetFixShifted(), fPairTwo->GetFixShifted(),
+                       Form("hCk_FixShifted%s", pairName));
+      LoopCorrelations(fPairOne->GetRebinned(), fPairTwo->GetRebinned(),
+                       Form("hCk_Rebinned%s", pairName));
+      LoopCorrelations(fPairOne->GetReweighted(), fPairTwo->GetReweighted(),
+                       Form("hCk_Reweighted%s", pairName));
+      LoopCorrelations(fPairOne->GetUnfolded(), fPairTwo->GetUnfolded(),
+                       Form("hCk_Unfolded%s", pairName));
+    }
+    else
+    {
+      Warning("DreamCF", "Pair 1 with %i histograms, Pair 2 with %i histograms",
+              fPairOne->GetNDists(), fPairTwo->GetNDists());
+    }
+  }
+  else if (fPairOne && !fPairTwo)
   {
     LoopCorrelations(fPairOne->GetShiftedEmpty(),
                      Form("hCk_Shifted%s", pairName));
@@ -117,6 +140,7 @@ void DreamCF::GetCorrelations(const char *pairName)
     LoopCorrelations(fPairOne->GetRebinned(), Form("hCk_Rebinned%s", pairName));
     LoopCorrelations(fPairOne->GetReweighted(),
                      Form("hCk_Reweighted%s", pairName));
+    LoopCorrelations(fPairOne->GetUnfolded(), Form("hCk_Unfolded%s", pairName));
   }
   else if (fPairTwo && !fPairOne)
   {
@@ -127,13 +151,84 @@ void DreamCF::GetCorrelations(const char *pairName)
     LoopCorrelations(fPairTwo->GetRebinned(), Form("hCk_Rebinned%s", pairName));
     LoopCorrelations(fPairTwo->GetReweighted(),
                      Form("hCk_Reweighted%s", pairName));
+    LoopCorrelations(fPairTwo->GetUnfolded(), Form("hCk_Unfolded%s", pairName));
   }
   else
   {
     Error("DreamCF", "Pair 1 and Pair 2 missing");
   }
-*/
   return;
+}
+
+void DreamCF::LoopCorrelations(std::vector<DreamDist *> PairOne,
+                               std::vector<DreamDist *> PairTwo,
+                               const char *name)
+{
+  if (PairOne.size() != PairTwo.size())
+  {
+    Warning("DreamCF", "Different size of pair (%ld) and antiparticle pair (%ld)",
+            PairOne.size(), PairTwo.size());
+  }
+  else
+  {
+    unsigned int iIter = 0;
+    while (iIter < PairOne.size())
+    {
+      DreamDist *PartPair = PairOne.at(iIter);
+      DreamDist *AntiPartPair = PairTwo.at(iIter);
+      TString CFSumName = Form("%s_%i", name, iIter);
+      TH1F *CFSum;
+      if (fDirectSum)
+      {
+        CFSum = AddCF(PartPair, AntiPartPair,
+                      CFSumName.Data());
+      }
+      else
+      {
+        CFSum = AddCF(PartPair->GetCF(), AntiPartPair->GetCF(),
+                      CFSumName.Data());
+      }
+      if (CFSum)
+      {
+        fCF.push_back(CFSum);
+        auto CFgrSum = AddCF(CFSum, {{fPairOne, fPairTwo}},
+                             Form("Gr%s", CFSumName.Data()));
+        TString CFSumMeVName = Form("%sMeV_%i", name, iIter);
+        TH1F *CFMeVSum = ConvertToOtherUnit(CFSum, 1000, CFSumMeVName.Data());
+        if (CFMeVSum)
+        {
+          fCF.push_back(CFMeVSum);
+        }
+        if (CFgrSum)
+        {
+          fGrCF.push_back(CFgrSum);
+          TString CFSumMeVName = Form("%sMeV", CFgrSum->GetName());
+          auto CFMeVSum = ConvertToOtherUnit(CFgrSum, 1000,
+                                             CFSumMeVName.Data());
+          if (CFMeVSum)
+          {
+            fGrCF.push_back(CFMeVSum);
+          }
+        }
+      }
+      else
+      {
+        if (PartPair->GetCF())
+        {
+          Warning("DreamCF",
+                  "For iteration %i Particle Pair CF (%s) is missing", iIter,
+                  PartPair->GetSEDist()->GetName());
+        }
+        else if (AntiPartPair->GetCF())
+        {
+          Warning("DreamCF",
+                  "For iteration %i AntiParticle Pair CF (%s) is missing",
+                  iIter, AntiPartPair->GetSEDist()->GetName());
+        }
+      }
+      iIter++;
+    }
+  }
 }
 
 void DreamCF::LoopCorrelations(std::vector<DreamDist *> Pair, const char *name)
@@ -152,7 +247,7 @@ void DreamCF::LoopCorrelations(std::vector<DreamDist *> Pair, const char *name)
       {
         fCF.push_back(CFMeVSum);
       }
-     }
+    }
     else
     {
       Warning("DreamCF", "For iteration %i Particle Pair CF (%s) is missing \n",
@@ -199,6 +294,81 @@ TH1F *DreamCF::SingleCF(TH1F *CF1, const char *name)
 {
   TH1F *hist_CF_sum = nullptr;
   hist_CF_sum = (TH1F *)CF1->Clone(name);
+  return hist_CF_sum;
+}
+
+TH1F *DreamCF::AddCF(DreamDist *DD1, DreamDist *DD2, const char *name)
+{
+  TH1F *hist_CF_sum = nullptr;
+  TH1F *CF1 = DD1->GetCF();
+  TH1F *CF2 = DD2->GetCF();
+  if (CF1 && CF2)
+  {
+    if (CF1->GetXaxis()->GetXmin() == CF2->GetXaxis()->GetXmin())
+    {
+
+      TH1F *Ratio = (TH1F *)CF1->Clone(TString::Format("%sRatio", name));
+      Ratio->Divide(CF2);
+      fRatio.push_back(Ratio);
+
+      //////////////////////////////////////////////////////////////////////////
+      //Calculate CFs with error weighting
+      hist_CF_sum = (TH1F *)DD1->GetSEDist()->Clone(name);
+      hist_CF_sum->Add(DD2->GetSEDist());
+      TH1F *hD = (TH1F *)DD1->GetMEDist()->Clone(name);
+      hD->Add(DD2->GetMEDist());
+      hist_CF_sum->Divide(hD);
+      delete hD;
+      //////////////////////////////////////////////////////////////////////////
+    }
+    else
+    {
+      Warning(
+          "DreamCF",
+          "Skipping %s and %s due to uneven beginning of binning (%.3f) and (%.3f)",
+          CF1->GetName(), CF2->GetName(), CF1->GetXaxis()->GetXmin(),
+          CF2->GetXaxis()->GetXmin());
+    }
+
+    //for the direct sum, we need to normalize again
+
+    //check if a normalization was performed on the pairs, and if it was identical
+    //if true, the sum will be normalized accordingly
+    //if false, no normalization will be performed in the same region as the 1st correlation
+    int WrongNorm = 0;
+    float normleft1 = DD1->GetNormLeft();
+    float normleft2 = DD2->GetNormLeft();
+    float normright1 = DD1->GetNormRight();
+    float normright2 = DD2->GetNormRight();
+    WrongNorm += (normleft1 < 0);
+    WrongNorm += (normleft2 < 0);
+    WrongNorm += (normleft1 != normleft2);
+    WrongNorm += (normright1 < 0);
+    WrongNorm += (normright2 < 0);
+    WrongNorm += (normright1 != normright2);
+    //////////////////////////////////////////////////////////////////////////
+    if (WrongNorm)
+    {
+      Warning("DreamCF", "Conflicting normalizations! The sum of the two correlation has been normalized according to the first pair!");
+    }
+
+    double IntegralSE = 0;
+    IntegralSE += DD1->GetSEDist()->Integral(hist_CF_sum->FindBin(normleft1), hist_CF_sum->FindBin(normright1));
+    IntegralSE += DD2->GetSEDist()->Integral(hist_CF_sum->FindBin(normleft1), hist_CF_sum->FindBin(normright1));
+
+    double IntegralME = 0;
+    IntegralME += DD1->GetMEDist()->Integral(hist_CF_sum->FindBin(normleft1), hist_CF_sum->FindBin(normright1));
+    IntegralME += DD2->GetMEDist()->Integral(hist_CF_sum->FindBin(normleft1), hist_CF_sum->FindBin(normright1));
+
+    if (IntegralSE != 0)
+    {
+      hist_CF_sum->Scale(IntegralME / IntegralSE);
+    }
+    else
+    {
+      Error("DreamCF", "AddCF division by 0");
+    }
+  }
   return hist_CF_sum;
 }
 
