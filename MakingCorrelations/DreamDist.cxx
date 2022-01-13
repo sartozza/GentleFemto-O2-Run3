@@ -14,15 +14,21 @@ DreamDist::DreamDist()
       fME(nullptr),
       fMEMult(nullptr),
       fCF(nullptr),
-      fGrCF(nullptr) {
+      fGrCF(nullptr),
+      fNormLeft(-1),
+      fNormRight(-1)
+{
 }
-DreamDist::DreamDist(DreamDist* pair, const char* name)
+DreamDist::DreamDist(DreamDist *pair, const char *name)
     : fSE(nullptr),
       fSEMult(nullptr),
       fME(nullptr),
       fMEMult(nullptr),
       fCF(nullptr),
-      fGrCF(nullptr) {
+      fGrCF(nullptr),
+      fNormLeft(-1),
+      fNormRight(-1)
+{
   this->SetSEDist(pair->GetSEDist(), name);
   if (pair->GetSEMultDist())
     this->SetSEMultDist(pair->GetSEMultDist(), name);
@@ -31,7 +37,8 @@ DreamDist::DreamDist(DreamDist* pair, const char* name)
     this->SetMEMultDist(pair->GetMEMultDist(), name);
 }
 
-DreamDist::~DreamDist() {
+DreamDist::~DreamDist()
+{
   if (fSE)
     delete fSE;
   if (fSEMult)
@@ -46,13 +53,17 @@ DreamDist::~DreamDist() {
     delete fGrCF;
 }
 
-unsigned int DreamDist::GetFemtoPairs(float kMin, float kMax) {
+unsigned int DreamDist::GetFemtoPairs(float kMin, float kMax)
+{
   unsigned int iPairs = 0;
-  if (fSE) {
-    if (fSE->GetXaxis()->GetXmin() <= kMin
-        && kMax <= fSE->GetXaxis()->GetXmax()) {
+  if (fSE)
+  {
+    if (fSE->GetXaxis()->GetXmin() <= kMin && kMax <= fSE->GetXaxis()->GetXmax())
+    {
       iPairs = fSE->Integral(fSE->FindBin(kMin), fSE->FindBin(kMax));
-    } else {
+    }
+    else
+    {
       std::cout
           << "DreamDist::GetFemtoPairs: Histogram and kMin/Max range do not add up: \n"
           << "Histogram range (xmin - xmax): " << fSE->GetXaxis()->GetXmin()
@@ -60,46 +71,57 @@ unsigned int DreamDist::GetFemtoPairs(float kMin, float kMax) {
           << "Integration range (kMin - kMax): " << kMin << " - " << kMax
           << std::endl;
     }
-  } else {
+  }
+  else
+  {
     std::cout << "DreamDist::GetFemtoPairs SE does not exist \n";
   }
   return iPairs;
 }
 
 void DreamDist::Calculate_CF(float normleft, float normright,
-                             TH1F* hSEnorebin) {
+                             TH1F *hSEnorebin)
+{
   if (!fCF)
   {
     TString CFname = fSE->GetName();
     CFname.Replace(CFname.Index("relPair"), 7, "CF");
-    fCF = (TH1F*) fSE->Clone(CFname.Data());
+    fCF = (TH1F *)fSE->Clone(CFname.Data());
     fGrCF = new TGraphAsymmErrors(fCF);
     fGrCF->Set(0);
+
+    fNormLeft = normleft;
+    fNormRight = normright;
 
     Double_t norm_relK = 0;
     double IntegralSE = fSE->Integral(fSE->FindBin(normleft),
                                       fSE->FindBin(normright));
     double IntegralME = fME->Integral(fME->FindBin(normleft),
                                       fME->FindBin(normright));
-    if (IntegralME != 0) {
+    if (IntegralME != 0)
+    {
       norm_relK = IntegralSE / IntegralME;
       fCF->Divide(fSE, fME, 1, norm_relK);
       // Shift the center of the bin in x according to the same event distribution
       // In case of very large bins, this can have a sizeable effect!
       int counter = 0;
       float xVal, xErrRight, xErrLeft, centrVal;
-      for (int i = 1; i <= fCF->GetNbinsX(); ++i) {
+      for (int i = 1; i <= fCF->GetNbinsX(); ++i)
+      {
         // In case we have a SE distribution available we use the mean in that k* bin
-        if (hSEnorebin) {
+        if (hSEnorebin)
+        {
           centrVal = fCF->GetBinCenter(i);
-          double chepsilyon = fCF->GetBinWidth(i)*1e-4;
+          double chepsilyon = fCF->GetBinWidth(i) * 1e-4;
           hSEnorebin->GetXaxis()->SetRangeUser(
               fCF->GetBinLowEdge(i) + chepsilyon,
               fCF->GetBinLowEdge(i) + fCF->GetBinWidth(i) - chepsilyon);
           xVal = hSEnorebin->GetMean();
           xErrLeft = xVal - centrVal + fCF->GetBinWidth(i) / 2.;
           xErrRight = centrVal - xVal + fCF->GetBinWidth(i) / 2.;
-        } else {
+        }
+        else
+        {
           // else just the bin center
           xVal = fCF->GetBinCenter(i);
           xErrLeft = fCF->GetBinWidth(i) / 2.;
@@ -109,7 +131,9 @@ void DreamDist::Calculate_CF(float normleft, float normright,
         fGrCF->SetPointError(counter++, xErrLeft, xErrRight,
                              fCF->GetBinError(i), fCF->GetBinError(i));
       }
-    } else {
+    }
+    else
+    {
       std::cout << "DreamDist::Calculate_CF division by 0 \n";
       std::cout << "Normalization left: " << normleft << " and right: "
                 << normright << std::endl;
