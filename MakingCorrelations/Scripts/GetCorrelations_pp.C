@@ -13,8 +13,8 @@
 /// 4. Norm1 and Norm2: interval of normalization for SE and ME
 void GetCorrelations_pp(const char *filename1, const char *filename2,
                         const char *prefix, const char *addon = "",
-                        double_t norm1 = 0.24,
-                        double_t norm2 = 0.34)
+                        double_t norm1 = 0.6,
+                        double_t norm2 = 0.8)
 {
   ReadDreamFile *DreamFile1 = new ReadDreamFile(1, 1); /// number of pairs you are analysing -> DUMMY!!
   ReadDreamFile *DreamFile2 = new ReadDreamFile(1, 1); /// number of pairs you are analysing -> DUMMY!!
@@ -53,36 +53,37 @@ void GetCorrelations_pp(const char *filename1, const char *filename2,
   std::cout << "==Rebinning & Weighting==" << std::endl;
   std::cout << "=========================" << std::endl;
 
-  // std::vector<int> rebinVec = {{1}};//not needed for p-p
-  // for (size_t iReb = 0; iReb < rebinVec.size(); ++iReb)
-  // {
-  //   std::cout << "==Rebinning==" << std::endl;
-  //   pp->Rebin(pp->GetPairFixShifted(0), rebinVec[iReb]);
-  //   std::cout << "==Weighting==" << std::endl;
-  //   pp->ReweightMixedEvent(pp->GetPairRebinned(iReb), 0.2, 0.9);
-  // }
-  pp->ReweightMixedEvent(pp->GetPairFixShifted(0), 0.2, 0.9);
-  ApAp->ReweightMixedEvent(ApAp->GetPairFixShifted(0), 0.2, 0.9);
+  std::vector<int> rebinVec = {{1,2,3,4}};//not needed for p-p
+  for (size_t iReb = 0; iReb < rebinVec.size(); ++iReb)
+  {
+    std::cout << "==Rebinning==" << std::endl;
+    pp->Rebin(pp->GetPairFixShifted(0), rebinVec[iReb]);
+    std::cout << "==Weighting==" << std::endl;
+    pp->ReweightMixedEvent(pp->GetPairRebinned(iReb), 0.2, 0.9);
+  }
+  // pp->ReweightMixedEvent(pp->GetPairFixShifted(0), 0.2, 0.9);
+  // ApAp->ReweightMixedEvent(ApAp->GetPairFixShifted(0), 0.2, 0.9);
 
   std::cout << "=========================" << std::endl;
   std::cout << "=========CFs=============" << std::endl;
   std::cout << "=========================" << std::endl;
 
-  // TString foldername = filename;
-  // foldername.ReplaceAll("AnalysisResults.root", "");
+  TString foldername1 = filename1;
+  foldername1.ReplaceAll("AnalysisResults.root", "");
+  TString foldername2 = filename2;
+  foldername2.ReplaceAll("AnalysisResults.root", "");
   std::cout << "==========CF pp===============" << std::endl;
   CF_pp->SetPairs(pp, nullptr);
   CF_pp->GetCorrelations();
-  // CF_pp->WriteOutput(Form("%s/CFOutput_pp_%s.root", foldername.Data(), addon));
-  CF_pp->WriteOutput(Form("CFOutput_pp_%s.root", addon));
+  CF_pp->WriteOutput(Form("%s/CFOutput_pp_%s.root", foldername1.Data(), addon));
 
   std::cout << "==========CF ApAp===============" << std::endl;
   CF_ApAp->SetPairs(ApAp, nullptr);
   CF_ApAp->GetCorrelations();
-  CF_ApAp->WriteOutput(Form("CFOutput_ApAp_%s.root", addon));
+  CF_ApAp->WriteOutput(Form("%s/CFOutput_ApAp_%s.root", foldername2.Data(), addon));
 
   std::cout << "==========CF pp===============" << std::endl;
   CF_tot->SetPairs(pp, ApAp);
   CF_tot->GetCorrelations();
-  CF_tot->WriteOutput(Form("CFOutput_Tot_%s.root", addon));
+  CF_tot->WriteOutput(Form("%s/CFOutput_Tot_%s.root", foldername1.Data() , addon));
 }
