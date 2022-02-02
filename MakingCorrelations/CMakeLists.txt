@@ -61,3 +61,6 @@ target_link_libraries(MakingCorrelations ${ROOT_LIBRARIES})
 add_executable(executeCorrelations_pp ${PROJECT_SOURCE_DIR}/Scripts/ExecuteCorrelations_pp.C)
 target_link_libraries(executeCorrelations_pp MakingCorrelations)
 
+add_executable(executeCorrelations_pilot ${PROJECT_SOURCE_DIR}/Scripts/ExecuteCorrelations_pp_pilot.C)
+target_link_libraries(executeCorrelations_pilot MakingCorrelations)
+

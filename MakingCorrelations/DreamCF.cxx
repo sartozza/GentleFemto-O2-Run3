@@ -302,15 +302,14 @@ TH1F *DreamCF::AddCF(DreamDist *DD1, DreamDist *DD2, const char *name)
   TH1F *hist_CF_sum = nullptr;
   TH1F *CF1 = DD1->GetCF();
   TH1F *CF2 = DD2->GetCF();
+
   if (CF1 && CF2)
   {
     if (CF1->GetXaxis()->GetXmin() == CF2->GetXaxis()->GetXmin())
     {
-
       TH1F *Ratio = (TH1F *)CF1->Clone(TString::Format("%sRatio", name));
       Ratio->Divide(CF2);
       fRatio.push_back(Ratio);
-
       //////////////////////////////////////////////////////////////////////////
       //Calculate CFs with error weighting
       hist_CF_sum = (TH1F *)DD1->GetSEDist()->Clone(name);
@@ -335,6 +334,7 @@ TH1F *DreamCF::AddCF(DreamDist *DD1, DreamDist *DD2, const char *name)
     //check if a normalization was performed on the pairs, and if it was identical
     //if true, the sum will be normalized accordingly
     //if false, no normalization will be performed in the same region as the 1st correlation
+
     int WrongNorm = 0;
     float normleft1 = DD1->GetNormLeft();
     float normleft2 = DD2->GetNormLeft();
@@ -351,11 +351,9 @@ TH1F *DreamCF::AddCF(DreamDist *DD1, DreamDist *DD2, const char *name)
     {
       Warning("DreamCF", "Conflicting normalizations! The sum of the two correlation has been normalized according to the first pair!");
     }
-
     double IntegralSE = 0;
     IntegralSE += DD1->GetSEDist()->Integral(hist_CF_sum->FindBin(normleft1), hist_CF_sum->FindBin(normright1));
     IntegralSE += DD2->GetSEDist()->Integral(hist_CF_sum->FindBin(normleft1), hist_CF_sum->FindBin(normright1));
-
     double IntegralME = 0;
     IntegralME += DD1->GetMEDist()->Integral(hist_CF_sum->FindBin(normleft1), hist_CF_sum->FindBin(normright1));
     IntegralME += DD2->GetMEDist()->Integral(hist_CF_sum->FindBin(normleft1), hist_CF_sum->FindBin(normright1));
